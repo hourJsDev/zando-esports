@@ -271,6 +271,11 @@
       .format-btn { min-height: 2.35rem; border-radius: 8px; padding: .35rem .85rem; color: #64748b; font-family: "Chakra Petch", sans-serif; font-size: .8rem; font-weight: 700; letter-spacing: .05em; }
       .format-btn.active { color: #071016; background: var(--cyan); box-shadow: 0 0 16px rgba(56,232,255,.18); }
       .format-btn:disabled { cursor: not-allowed; opacity: .55; }
+      .lane-choice { position: relative; }
+      .lane-choice input { position: absolute; opacity: 0; pointer-events: none; }
+      .lane-choice span { min-height: 2.6rem; display: flex; align-items: center; justify-content: center; gap: .4rem; border: 1px solid rgba(148,163,184,.18); border-radius: 9px; background: #090e16; color: #64748b; font-family: "Chakra Petch", sans-serif; font-size: .78rem; font-weight: 700; transition: all .18s ease; }
+      .lane-choice input:checked + span { border-color: rgba(56,232,255,.65); background: rgba(56,232,255,.12); color: var(--cyan); box-shadow: inset 0 0 0 1px rgba(56,232,255,.08); }
+      .lane-choice input:focus-visible + span { outline: 2px solid var(--cyan); outline-offset: 3px; }
       .history-row {
         display: grid;
         grid-template-columns: 6rem 1fr auto;
@@ -375,7 +380,7 @@
             <input
               type="text"
               id="search-player"
-              placeholder="Search player or hero..."
+              placeholder="Search player..."
               oninput="renderRoster()"
               class="w-full pl-9 pr-3 py-2 bg-slate-900/80 border border-slate-700/60 rounded-xl text-xs focus:outline-none focus:border-cyan-400 text-slate-200"
             />
@@ -569,8 +574,8 @@
             <span id="stat-lanes-covered" class="font-display font-bold text-2xl text-amber-400 mt-1 block">0/5</span>
           </div>
           <div class="bg-mlbb-card p-3.5 rounded-2xl border border-slate-800 text-center">
-            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold block">Top Hero Pool</span>
-            <span id="stat-top-hero" class="font-display font-bold text-sm text-purple-400 mt-2 block truncate">-</span>
+            <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold block">Flex Players</span>
+            <span id="stat-flex-players" class="font-display font-bold text-2xl text-purple-400 mt-1 block">0</span>
           </div>
           <div class="bg-mlbb-card p-3.5 rounded-2xl border border-slate-800 text-center">
             <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold block">5v5 Ready</span>
@@ -580,7 +585,7 @@
 
         <!-- Role Distribution Breakdown -->
         <div class="bg-mlbb-card p-4 rounded-2xl border border-slate-800">
-          <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Primary Lane Distribution</h3>
+          <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Playable Lane Coverage</h3>
           <div id="lane-distribution-bars" class="space-y-2.5">
             <!-- Progress bars rendered via JS -->
           </div>
@@ -645,28 +650,19 @@
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label for="player-lane" class="block text-[11px] font-semibold text-slate-400 mb-1">Main Lane</label>
-              <select id="player-lane" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-cyan-400 text-slate-200">
-                <option value="EXP">EXP Lane</option>
-                <option value="JUNGLE">Jungler</option>
-                <option value="MID">Mid Lane</option>
-                <option value="GOLD">Gold Lane</option>
-                <option value="ROAM">Roamer</option>
-              </select>
+          <div>
+            <div class="flex items-end justify-between gap-3 mb-2">
+              <span class="block text-[11px] font-semibold text-slate-400">Playable Lanes</span>
+              <span class="text-[10px] text-slate-500">Choose one or more</span>
             </div>
-            <div>
-              <label for="player-role" class="block text-[11px] font-semibold text-slate-400 mb-1">Secondary Role</label>
-              <select id="player-role" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-cyan-400 text-slate-200">
-                <option value="Assassin">Assassin</option>
-                <option value="Fighter">Fighter</option>
-                <option value="Mage">Mage</option>
-                <option value="Marksman">Marksman</option>
-                <option value="Tank">Tank</option>
-                <option value="Support">Support</option>
-              </select>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2" id="player-lanes">
+              <label class="lane-choice"><input type="checkbox" name="player-lanes" value="EXP" /><span><i class="fa-solid fa-shield-halved"></i> EXP</span></label>
+              <label class="lane-choice"><input type="checkbox" name="player-lanes" value="JUNGLE" /><span><i class="fa-solid fa-paw"></i> Jungle</span></label>
+              <label class="lane-choice"><input type="checkbox" name="player-lanes" value="MID" /><span><i class="fa-solid fa-wand-magic-sparkles"></i> Mid</span></label>
+              <label class="lane-choice"><input type="checkbox" name="player-lanes" value="GOLD" /><span><i class="fa-solid fa-coins"></i> Gold</span></label>
+              <label class="lane-choice"><input type="checkbox" name="player-lanes" value="ROAM" /><span><i class="fa-solid fa-heart"></i> Roam</span></label>
             </div>
+            <p id="lane-validation" class="hidden text-xs text-red-300 mt-2">Select at least one playable lane.</p>
           </div>
 
           <div>
@@ -696,18 +692,6 @@
             </div>
           </div>
 
-          <div>
-            <label for="player-heroes" class="block text-[11px] font-semibold text-slate-400 mb-1">Hero Pool (Comma separated)</label>
-            <input
-              type="text"
-              id="player-heroes"
-              required
-              placeholder="Chou, Ling, Paquito, Fanny..."
-              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-cyan-400 text-slate-200"
-            />
-            <p class="text-[10px] text-slate-500 mt-1">Add main heroes this player masters.</p>
-          </div>
-
           <div class="pt-2 flex justify-end space-x-2">
             <button type="button" onclick="closePlayerModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs text-slate-300 font-semibold">Cancel</button>
             <button
@@ -729,7 +713,7 @@
             <img id="profile-avatar" class="w-16 h-16 rounded-xl object-cover border border-cyan-500/30 bg-slate-900" alt="Player avatar" />
             <div class="min-w-0">
               <h3 id="profile-name" class="font-display text-xl font-bold text-slate-100 truncate">Player</h3>
-              <p id="profile-role" class="text-xs text-cyan-300 mt-1">Lane · Role</p>
+              <p id="profile-lanes" class="text-xs text-cyan-300 mt-1">Playable lanes</p>
             </div>
           </div>
           <button onclick="closePlayerProfile()" class="text-slate-400 hover:text-white" aria-label="Close player profile"><i class="fa-solid fa-xmark"></i></button>
@@ -763,23 +747,38 @@
     <script>
       // Preset default squad members to make the app ready to play out of the box
       const defaultSquad = [
-        { id: "demo-01", name: "Riven", lane: "EXP", role: "Fighter", image: "", heroes: ["Yu Zhong", "Arlott", "Terizla"] },
-        { id: "demo-02", name: "Kairo", lane: "EXP", role: "Fighter", image: "", heroes: ["Paquito", "Lapu-Lapu", "Benedetta"] },
-        { id: "demo-03", name: "Vex", lane: "JUNGLE", role: "Assassin", image: "", heroes: ["Ling", "Fanny", "Nolan"] },
-        { id: "demo-04", name: "Onyx", lane: "JUNGLE", role: "Assassin", image: "", heroes: ["Hayabusa", "Joy", "Lancelot"] },
-        { id: "demo-05", name: "Astra", lane: "MID", role: "Mage", image: "", heroes: ["Valentina", "Lylia", "Lunox"] },
-        { id: "demo-06", name: "Solace", lane: "MID", role: "Mage", image: "", heroes: ["Yve", "Xavier", "Novaria"] },
-        { id: "demo-07", name: "Flint", lane: "GOLD", role: "Marksman", image: "", heroes: ["Claude", "Brody", "Beatrix"] },
-        { id: "demo-08", name: "Mako", lane: "GOLD", role: "Marksman", image: "", heroes: ["Bruno", "Karrie", "Moskov"] },
-        { id: "demo-09", name: "Aegis", lane: "ROAM", role: "Tank", image: "", heroes: ["Tigreal", "Khufra", "Minotaur"] },
-        { id: "demo-10", name: "Echo", lane: "ROAM", role: "Support", image: "", heroes: ["Mathilda", "Diggie", "Rafaela"] },
+        { id: "demo-01", name: "Riven", lanes: ["EXP", "ROAM"], image: "" },
+        { id: "demo-02", name: "Kairo", lanes: ["EXP", "JUNGLE"], image: "" },
+        { id: "demo-03", name: "Vex", lanes: ["JUNGLE", "MID"], image: "" },
+        { id: "demo-04", name: "Onyx", lanes: ["JUNGLE", "GOLD"], image: "" },
+        { id: "demo-05", name: "Astra", lanes: ["MID", "GOLD"], image: "" },
+        { id: "demo-06", name: "Solace", lanes: ["MID", "ROAM"], image: "" },
+        { id: "demo-07", name: "Flint", lanes: ["GOLD", "JUNGLE"], image: "" },
+        { id: "demo-08", name: "Mako", lanes: ["GOLD", "EXP"], image: "" },
+        { id: "demo-09", name: "Aegis", lanes: ["ROAM", "EXP"], image: "" },
+        { id: "demo-10", name: "Echo", lanes: ["ROAM", "MID"], image: "" },
       ];
 
       // State storage
-      let squad = JSON.parse(localStorage.getItem("mlbb_squad_data")) || defaultSquad;
-      let matchHistory = JSON.parse(localStorage.getItem("mlbb_match_history")) || [];
+      function normalizePlayerData(player) {
+        const lanes = Array.isArray(player.lanes) && player.lanes.length ? player.lanes : player.lane ? [player.lane] : ["EXP"];
+        const { lane, role, heroes, ...cleanPlayer } = player;
+        return { ...cleanPlayer, lanes };
+      }
+
+      function normalizeMatchData(match) {
+        return {
+          ...match,
+          teamBlue: (match.teamBlue || []).map(normalizePlayerData),
+          teamRed: (match.teamRed || []).map(normalizePlayerData),
+        };
+      }
+
+      let squad = (JSON.parse(localStorage.getItem("mlbb_squad_data")) || defaultSquad).map(normalizePlayerData);
+      let matchHistory = (JSON.parse(localStorage.getItem("mlbb_match_history")) || []).map(normalizeMatchData);
       let selectedMatchmakerIds = new Set();
-      let currentMatchup = JSON.parse(localStorage.getItem("mlbb_current_match")) || null;
+      const savedCurrentMatch = JSON.parse(localStorage.getItem("mlbb_current_match")) || null;
+      let currentMatchup = savedCurrentMatch ? normalizeMatchData(savedCurrentMatch) : null;
       let selectedMatchFormat = Number(localStorage.getItem("mlbb_match_format")) === 3 ? 3 : 1;
       let currentFilterLane = "ALL";
 
@@ -852,15 +851,10 @@
         document.getElementById("stat-total-players").innerText = squad.length;
 
         if (squad.length > 0) {
-          const uniqueLanes = new Set(squad.map((p) => p.lane)).size;
+          const uniqueLanes = new Set(squad.flatMap((p) => p.lanes || [])).size;
           document.getElementById("stat-lanes-covered").innerText = `${uniqueLanes}/5`;
-
-          // Most common hero
-          const heroCounts = {};
-          squad.forEach((p) => (p.heroes || []).forEach((h) => (heroCounts[h] = (heroCounts[h] || 0) + 1)));
-          const topHero = Object.entries(heroCounts).sort((a, b) => b[1] - a[1])[0];
-          document.getElementById("stat-top-hero").innerText = topHero ? topHero[0] : "-";
         }
+        document.getElementById("stat-flex-players").innerText = squad.filter((player) => (player.lanes || []).length > 1).length;
 
         document.getElementById("stat-match-ready").innerText = squad.length >= 10 ? "YES" : "NEED 10";
         renderLaneDistribution();
@@ -905,8 +899,8 @@
         const searchTerm = (document.getElementById("search-player").value || "").toLowerCase();
 
         const filtered = squad.filter((player) => {
-          const matchesLane = currentFilterLane === "ALL" || player.lane === currentFilterLane;
-          const matchesSearch = player.name.toLowerCase().includes(searchTerm) || player.heroes.some((h) => h.toLowerCase().includes(searchTerm));
+          const matchesLane = currentFilterLane === "ALL" || player.lanes.includes(currentFilterLane);
+          const matchesSearch = player.name.toLowerCase().includes(searchTerm);
           return matchesLane && matchesSearch;
         });
 
@@ -920,7 +914,6 @@
 
         grid.innerHTML = filtered
           .map((player) => {
-            const laneMeta = laneBadgeMap[player.lane] || laneBadgeMap["EXP"];
             const fallbackAvatar = `https://placehold.co/120x120/1e293b/00f2fe?text=${player.name.charAt(0)}`;
             const record = getPlayerRecord(player.id);
 
@@ -933,29 +926,18 @@
                         <div class="flex-grow min-w-0">
                             <div class="flex items-center justify-between">
                                 <h3 class="font-bold text-sm text-slate-100 truncate">${player.name}</h3>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full border ${laneMeta.color} font-bold uppercase tracking-wider flex items-center gap-1">
-                                    <i class="fa-solid ${laneMeta.icon} text-[9px]"></i>
-                                    ${player.lane}
-                                </span>
+                                <div class="flex flex-wrap justify-end gap-1">
+                                  ${player.lanes.map((lane) => {
+                                    const laneMeta = laneBadgeMap[lane] || laneBadgeMap.EXP;
+                                    return `<span class="text-[10px] px-2 py-0.5 rounded-full border ${laneMeta.color} font-bold uppercase tracking-wider flex items-center gap-1"><i class="fa-solid ${laneMeta.icon} text-[9px]"></i>${lane}</span>`;
+                                  }).join("")}
+                                </div>
                             </div>
 
                             <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
-                                <span class="text-slate-300">${player.role}</span>
-                                <span class="text-slate-600">•</span>
                                 <span class="text-lime-300 font-semibold">${record.winRate}% WR</span>
-                            </div>
-
-                            <!-- Hero Pool Badges -->
-                            <div class="flex flex-wrap gap-1 mt-2.5">
-                                ${(player.heroes || [])
-                                  .map(
-                                    (h) => `
-                                    <span class="bg-slate-900/90 text-slate-300 text-[10px] px-2 py-0.5 rounded-md border border-slate-800 font-medium">
-                                        ${h}
-                                    </span>
-                                `,
-                                  )
-                                  .join("")}
+                                <span class="text-slate-600">•</span>
+                                <span class="text-slate-400">${player.lanes.length > 1 ? "Flex player" : "Single lane"}</span>
                             </div>
                         </div>
                     </div>
@@ -983,6 +965,7 @@
         form.reset();
         document.getElementById("player-image-data").value = "";
         document.getElementById("file-upload-name").innerText = "No file chosen";
+        document.getElementById("lane-validation").classList.add("hidden");
 
         if (playerId) {
           const player = squad.find((p) => p.id === playerId);
@@ -990,14 +973,14 @@
             document.getElementById("modal-title").innerText = "EDIT SQUAD MEMBER";
             document.getElementById("player-id").value = player.id;
             document.getElementById("player-name").value = player.name;
-            document.getElementById("player-lane").value = player.lane;
-            document.getElementById("player-role").value = player.role;
+            document.querySelectorAll('input[name="player-lanes"]').forEach((input) => {
+              input.checked = player.lanes.includes(input.value);
+            });
             document.getElementById("player-image").value = player.image && !player.image.startsWith("data:") ? player.image : "";
             document.getElementById("player-image-data").value = player.image || "";
             if (player.image && player.image.startsWith("data:")) {
               document.getElementById("file-upload-name").innerText = "Custom image uploaded";
             }
-            document.getElementById("player-heroes").value = (player.heroes || []).join(", ");
           }
         } else {
           document.getElementById("modal-title").innerText = "ADD SQUAD MEMBER";
@@ -1041,20 +1024,18 @@
         e.preventDefault();
         const id = document.getElementById("player-id").value;
         const name = document.getElementById("player-name").value.trim();
-        const lane = document.getElementById("player-lane").value;
-        const role = document.getElementById("player-role").value;
+        const lanes = [...document.querySelectorAll('input[name="player-lanes"]:checked')].map((input) => input.value);
+        if (!lanes.length) {
+          document.getElementById("lane-validation").classList.remove("hidden");
+          return;
+        }
         const image = document.getElementById("player-image-data").value.trim() || document.getElementById("player-image").value.trim();
-        const heroesRaw = document.getElementById("player-heroes").value;
-        const heroes = heroesRaw
-          .split(",")
-          .map((h) => h.trim())
-          .filter((h) => h.length > 0);
 
         if (id) {
           // Update
           const idx = squad.findIndex((p) => p.id === id);
           if (idx !== -1) {
-            squad[idx] = { id, name, lane, role, image, heroes };
+            squad[idx] = { id, name, lanes, image };
             showToast("Player updated successfully!");
           }
         } else {
@@ -1062,10 +1043,8 @@
           const newPlayer = {
             id: Date.now().toString(),
             name,
-            lane,
-            role,
+            lanes,
             image,
-            heroes,
           };
           squad.unshift(newPlayer);
           showToast("New player added to squad!");
@@ -1098,7 +1077,7 @@
         document.getElementById("profile-avatar").src = player.image || fallbackAvatar;
         document.getElementById("profile-avatar").alt = `${player.name} avatar`;
         document.getElementById("profile-name").innerText = player.name;
-        document.getElementById("profile-role").innerText = `${player.lane} Lane · ${player.role}`;
+        document.getElementById("profile-lanes").innerText = player.lanes.map((lane) => `${lane} Lane`).join(" · ");
         document.getElementById("profile-win-rate").innerText = `${record.winRate}%`;
         document.getElementById("profile-rate-ring").style.setProperty("--rate", `${record.winRate}%`);
         document.getElementById("profile-games").innerText = record.games.length;
@@ -1156,7 +1135,7 @@
                     <img src="${player.image || fallbackAvatar}" onerror="this.src='${fallbackAvatar}'" alt="${player.name} avatar"
                         class="w-10 h-10 rounded-lg object-cover bg-slate-800 mb-1.5">
                     <span class="font-bold text-xs text-slate-200 truncate w-full">${player.name}</span>
-                    <span class="text-[10px] text-cyan-400 font-medium">${player.lane}</span>
+                    <span class="text-[10px] text-cyan-400 font-medium truncate w-full">${player.lanes.join(" / ")}</span>
                 </div>`;
           })
           .join("");
@@ -1188,6 +1167,53 @@
         renderMatchmakerList();
       }
 
+      function playerCanPlay(player, lane) {
+        const playableLanes = Array.isArray(player.lanes) ? player.lanes : player.lane ? [player.lane] : [];
+        return playableLanes.includes(lane);
+      }
+
+      function buildBalancedTeams(players) {
+        const lanes = ["EXP", "JUNGLE", "MID", "GOLD", "ROAM"];
+        let bestAssignments = [];
+        let bestScore = -1;
+
+        for (let attempt = 0; attempt < 120; attempt += 1) {
+          const remainingPlayers = [...players].sort(() => Math.random() - 0.5);
+          const remainingSlots = lanes.flatMap((lane) => [
+            { team: "BLUE", lane },
+            { team: "RED", lane },
+          ]);
+          const assignments = [];
+
+          while (remainingSlots.length) {
+            remainingSlots.sort((a, b) => {
+              const aOptions = remainingPlayers.filter((player) => playerCanPlay(player, a.lane)).length;
+              const bOptions = remainingPlayers.filter((player) => playerCanPlay(player, b.lane)).length;
+              return aOptions - bOptions;
+            });
+            const slot = remainingSlots.shift();
+            const eligible = remainingPlayers.filter((player) => playerCanPlay(player, slot.lane));
+            const pool = eligible.length ? eligible : remainingPlayers;
+            pool.sort((a, b) => (a.lanes?.length || 1) - (b.lanes?.length || 1) || Math.random() - 0.5);
+            const player = pool[0];
+            remainingPlayers.splice(remainingPlayers.findIndex((item) => item.id === player.id), 1);
+            assignments.push({ ...player, assignedLane: slot.lane, assignedTeam: slot.team, assignmentFit: playerCanPlay(player, slot.lane) });
+          }
+
+          const score = assignments.filter((item) => item.assignmentFit).length;
+          if (score > bestScore) {
+            bestScore = score;
+            bestAssignments = assignments;
+          }
+          if (score === 10) break;
+        }
+
+        return {
+          teamBlue: bestAssignments.filter((item) => item.assignedTeam === "BLUE").sort((a, b) => lanes.indexOf(a.assignedLane) - lanes.indexOf(b.assignedLane)),
+          teamRed: bestAssignments.filter((item) => item.assignedTeam === "RED").sort((a, b) => lanes.indexOf(a.assignedLane) - lanes.indexOf(b.assignedLane)),
+        };
+      }
+
       // Balanced 5v5 Generator algorithm based on Lane Matching
       function generate5v5() {
         if (hasPendingMatch()) {
@@ -1199,36 +1225,7 @@
 
         const selectedPlayers = squad.filter((p) => selectedMatchmakerIds.has(p.id));
 
-        // Group players by primary lane
-        const lanes = ["EXP", "JUNGLE", "MID", "GOLD", "ROAM"];
-        let teamBlue = [];
-        let teamRed = [];
-
-        let unassigned = [...selectedPlayers];
-
-        // Attempt to assign 1 player per lane for each team
-        lanes.forEach((lane) => {
-          let candidates = unassigned.filter((p) => p.lane === lane);
-
-          if (candidates.length >= 2) {
-            teamBlue.push({ ...candidates[0], assignedLane: lane });
-            teamRed.push({ ...candidates[1], assignedLane: lane });
-            unassigned = unassigned.filter((p) => p.id !== candidates[0].id && p.id !== candidates[1].id);
-          } else if (candidates.length === 1) {
-            teamBlue.push({ ...candidates[0], assignedLane: lane });
-            unassigned = unassigned.filter((p) => p.id !== candidates[0].id);
-          }
-        });
-
-        // Fill remaining slots for missing lanes
-        lanes.forEach((lane) => {
-          if (!teamBlue.some((p) => p.assignedLane === lane) && unassigned.length > 0) {
-            teamBlue.push({ ...unassigned.shift(), assignedLane: lane });
-          }
-          if (!teamRed.some((p) => p.assignedLane === lane) && unassigned.length > 0) {
-            teamRed.push({ ...unassigned.shift(), assignedLane: lane });
-          }
-        });
+        const { teamBlue, teamRed } = buildBalancedTeams(selectedPlayers);
 
         currentMatchup = {
           id: `match-${Date.now()}`,
@@ -1261,17 +1258,7 @@
           return;
         }
         const all10 = [...currentMatchup.teamBlue, ...currentMatchup.teamRed];
-        // Shuffle
-        all10.sort(() => Math.random() - 0.5);
-
-        const lanes = ["EXP", "JUNGLE", "MID", "GOLD", "ROAM"];
-        const teamBlue = [];
-        const teamRed = [];
-
-        lanes.forEach((lane, i) => {
-          teamBlue.push({ ...all10[i * 2], assignedLane: lane });
-          teamRed.push({ ...all10[i * 2 + 1], assignedLane: lane });
-        });
+        const { teamBlue, teamRed } = buildBalancedTeams(all10);
 
         currentMatchup = { ...currentMatchup, teamBlue, teamRed };
         saveMatchState();
@@ -1336,7 +1323,7 @@
                         <div class="min-w-0">
                             <h4 class="font-bold text-xs text-blue-300 truncate">${bluePlayer.name}</h4>
                             <div class="text-[10px] text-slate-400 mt-0.5">
-                                <span>${bluePlayer.role}</span>
+                                <span>${(bluePlayer.lanes || (bluePlayer.lane ? [bluePlayer.lane] : [])).join(" / ")}</span>
                             </div>
                         </div>
                     </div>
@@ -1354,7 +1341,7 @@
                         <div class="min-w-0">
                             <h4 class="font-bold text-xs text-red-300 truncate">${redPlayer.name}</h4>
                             <div class="text-[10px] text-slate-400 mt-0.5">
-                                <span>${redPlayer.role}</span>
+                                <span>${(redPlayer.lanes || (redPlayer.lane ? [redPlayer.lane] : [])).join(" / ")}</span>
                             </div>
                         </div>
                         <img src="${redPlayer.image || "https://placehold.co/100x100/1e293b/ff4d4d?text=" + redPlayer.name.charAt(0)}" alt="${redPlayer.name} avatar"
@@ -1422,12 +1409,12 @@
       function renderLaneDistribution() {
         const container = document.getElementById("lane-distribution-bars");
         const lanes = ["EXP", "JUNGLE", "MID", "GOLD", "ROAM"];
-        const total = squad.length || 1;
+        const totalPlayers = squad.length || 1;
 
         container.innerHTML = lanes
           .map((lane) => {
-            const count = squad.filter((p) => p.lane === lane).length;
-            const pct = Math.round((count / total) * 100);
+            const count = squad.filter((player) => player.lanes.includes(lane)).length;
+            const pct = Math.round((count / totalPlayers) * 100);
             const laneMeta = laneBadgeMap[lane];
 
             return `
@@ -1469,6 +1456,8 @@
 
       // Initialize App on window load
       window.onload = function () {
+        localStorage.setItem("mlbb_squad_data", JSON.stringify(squad));
+        saveMatchState();
         updateBadgesAndStats();
         renderRoster();
         renderVersusBoard();
