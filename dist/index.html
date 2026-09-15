@@ -250,6 +250,45 @@
       #tab-stats > div:first-child > div:nth-child(4)::after { background: var(--lime); }
       #tab-stats > div:first-child span:last-child { margin-top: .8rem !important; }
 
+      .result-panel, .history-panel, .profile-card {
+        background: linear-gradient(145deg, rgba(18,25,37,.98), rgba(9,13,20,.98));
+        border: 1px solid rgba(148,163,184,.16);
+        border-radius: 16px;
+        box-shadow: 0 16px 44px rgba(0,0,0,.22);
+      }
+      .result-panel { border-top: 2px solid var(--lime); }
+      .result-choice {
+        min-height: 3rem;
+        border-radius: 10px;
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 700;
+        letter-spacing: .05em;
+        transition: transform .18s ease, filter .18s ease;
+      }
+      .result-choice:hover { transform: translateY(-2px); filter: brightness(1.12); }
+      .result-choice:disabled { cursor: not-allowed; filter: grayscale(.4); opacity: .45; transform: none; }
+      .history-row {
+        display: grid;
+        grid-template-columns: 6rem 1fr auto;
+        gap: .8rem;
+        align-items: center;
+        padding: .9rem 0;
+        border-top: 1px solid rgba(148,163,184,.12);
+      }
+      .history-row:first-child { border-top: 0; }
+      .win-rate-ring {
+        width: 7.5rem;
+        height: 7.5rem;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: conic-gradient(var(--lime) var(--rate), rgba(148,163,184,.12) 0);
+        position: relative;
+      }
+      .win-rate-ring::after { content: ""; position: absolute; inset: .55rem; border-radius: inherit; background: #0c111a; }
+      .win-rate-ring > span { position: relative; z-index: 1; }
+      .profile-stat { background: #090e16; border: 1px solid rgba(148,163,184,.14); border-radius: 12px; padding: .8rem; }
+
       .app-nav {
         left: 50% !important;
         right: auto !important;
@@ -283,6 +322,8 @@
         .workspace::before { font-size: .66rem; }
         #tab-matchmaker > div:first-child .flex.items-center.justify-center { flex-wrap: wrap; }
         #generate-btn { width: 100%; justify-content: center; }
+        .history-row { grid-template-columns: 1fr auto; }
+        .history-row > :first-child { grid-column: 1 / -1; }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -390,6 +431,9 @@
             <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
               Select <span id="selected-count-text" class="text-cyan-400 font-bold">0</span>/10 squad members to balance and create opposing teams.
             </p>
+            <p id="match-lock-notice" class="hidden text-xs text-amber-300 mt-2 font-semibold">
+              <i class="fa-solid fa-lock mr-1"></i> Record the active match result before drafting again.
+            </p>
 
             <div class="flex items-center justify-center gap-3 mt-4">
               <button
@@ -455,7 +499,7 @@
             <div class="w-1/3 text-center">
               <span class="font-display font-black text-2xl tracking-widest text-amber-400 italic">VS</span>
               <div class="mt-1">
-                <button onclick="reshuffleTeams()" class="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[10px] rounded-lg border border-slate-700 font-medium">
+                <button id="reshuffle-btn" onclick="reshuffleTeams()" class="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[10px] rounded-lg border border-slate-700 font-medium">
                   <i class="fa-solid fa-rotate text-cyan-400 mr-1"></i> Re-Balance
                 </button>
               </div>
@@ -468,6 +512,23 @@
           <!-- Matchup Cards Container -->
           <div id="matchup-lanes-container" class="space-y-3">
             <!-- 5 Lane Matchup Cards rendered via JS -->
+          </div>
+
+          <div id="match-result-panel" class="result-panel p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p class="font-display text-sm font-bold tracking-wider text-slate-100">MATCH RESULT REQUIRED</p>
+                <p id="match-result-copy" class="text-xs text-slate-400 mt-1">Choose the winning side to save this match and unlock the next draft.</p>
+              </div>
+              <div class="grid grid-cols-2 gap-2 sm:min-w-72">
+                <button id="blue-win-btn" onclick="recordMatchResult('BLUE')" class="result-choice bg-blue-500/20 border border-blue-400/50 text-blue-300 px-4">
+                  <i class="fa-solid fa-crown mr-1.5"></i> Blue Won
+                </button>
+                <button id="red-win-btn" onclick="recordMatchResult('RED')" class="result-choice bg-red-500/20 border border-red-400/50 text-red-300 px-4">
+                  <i class="fa-solid fa-crown mr-1.5"></i> Red Won
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="flex justify-end gap-2 pt-2">
@@ -509,6 +570,17 @@
           <div id="lane-distribution-bars" class="space-y-2.5">
             <!-- Progress bars rendered via JS -->
           </div>
+        </div>
+
+        <div class="history-panel p-4">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <div>
+              <h3 class="font-display text-sm font-bold tracking-wider text-slate-100">MATCH HISTORY</h3>
+              <p class="text-xs text-slate-500 mt-1">Completed results saved on this device.</p>
+            </div>
+            <span id="history-count" class="text-xs font-bold text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 rounded-lg">0 MATCHES</span>
+          </div>
+          <div id="match-history-list"></div>
         </div>
       </section>
     </main>
@@ -635,6 +707,36 @@
       </div>
     </div>
 
+    <!-- PLAYER PERFORMANCE PROFILE -->
+    <div id="profile-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="profile-name">
+      <div class="profile-card w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-center gap-3 min-w-0">
+            <img id="profile-avatar" class="w-16 h-16 rounded-xl object-cover border border-cyan-500/30 bg-slate-900" alt="Player avatar" />
+            <div class="min-w-0">
+              <h3 id="profile-name" class="font-display text-xl font-bold text-slate-100 truncate">Player</h3>
+              <p id="profile-role" class="text-xs text-cyan-300 mt-1">Lane · Role</p>
+            </div>
+          </div>
+          <button onclick="closePlayerProfile()" class="text-slate-400 hover:text-white" aria-label="Close player profile"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex flex-col sm:flex-row items-center gap-5 mt-5">
+          <div id="profile-rate-ring" class="win-rate-ring" style="--rate: 0%">
+            <span class="text-center"><strong id="profile-win-rate" class="font-display text-2xl text-lime-300 block">0%</strong><small class="text-xs text-slate-500">WIN RATE</small></span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 flex-1 w-full">
+            <div class="profile-stat"><span class="text-xs text-slate-500 block">Games</span><strong id="profile-games" class="font-display text-xl text-slate-100">0</strong></div>
+            <div class="profile-stat"><span class="text-xs text-slate-500 block">Wins</span><strong id="profile-wins" class="font-display text-xl text-lime-300">0</strong></div>
+            <div class="profile-stat"><span class="text-xs text-slate-500 block">Losses</span><strong id="profile-losses" class="font-display text-xl text-red-300">0</strong></div>
+          </div>
+        </div>
+        <div class="mt-5">
+          <h4 class="text-xs font-bold tracking-wider text-slate-300 uppercase">Recent Results</h4>
+          <div id="profile-match-list" class="mt-2"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast Notification Box -->
     <div
       id="toast-msg"
@@ -661,8 +763,9 @@
 
       // State storage
       let squad = JSON.parse(localStorage.getItem("mlbb_squad_data")) || defaultSquad;
+      let matchHistory = JSON.parse(localStorage.getItem("mlbb_match_history")) || [];
       let selectedMatchmakerIds = new Set();
-      let currentMatchup = null; // { teamBlue: [], teamRed: [] }
+      let currentMatchup = JSON.parse(localStorage.getItem("mlbb_current_match")) || null;
       let currentFilterLane = "ALL";
 
       // Lane Icons and Badges mapping
@@ -677,6 +780,28 @@
       function saveSquadToStorage() {
         localStorage.setItem("mlbb_squad_data", JSON.stringify(squad));
         updateBadgesAndStats();
+      }
+
+      function saveMatchState() {
+        localStorage.setItem("mlbb_match_history", JSON.stringify(matchHistory));
+        if (currentMatchup) {
+          localStorage.setItem("mlbb_current_match", JSON.stringify(currentMatchup));
+        } else {
+          localStorage.removeItem("mlbb_current_match");
+        }
+      }
+
+      function hasPendingMatch() {
+        return Boolean(currentMatchup && !currentMatchup.winner);
+      }
+
+      function getPlayerRecord(playerId) {
+        const games = matchHistory.filter((match) => [...match.teamBlue, ...match.teamRed].some((player) => player.id === playerId));
+        const wins = games.filter((match) => {
+          const team = match.teamBlue.some((player) => player.id === playerId) ? "BLUE" : "RED";
+          return match.winner === team;
+        }).length;
+        return { games, wins, losses: games.length - wins, winRate: games.length ? Math.round((wins / games.length) * 100) : 0 };
       }
 
       function showToast(text) {
@@ -705,6 +830,7 @@
 
         document.getElementById("stat-match-ready").innerText = squad.length >= 10 ? "YES" : "NEED 10";
         renderLaneDistribution();
+        renderMatchHistory();
       }
 
       function switchTab(tabId) {
@@ -762,6 +888,7 @@
           .map((player) => {
             const laneMeta = laneBadgeMap[player.lane] || laneBadgeMap["EXP"];
             const fallbackAvatar = `https://placehold.co/120x120/1e293b/00f2fe?text=${player.name.charAt(0)}`;
+            const record = getPlayerRecord(player.id);
 
             return `
                 <div class="bg-mlbb-card border border-slate-800/80 rounded-2xl p-3.5 hover:border-slate-700 transition-all shadow-md relative group">
@@ -780,6 +907,8 @@
 
                             <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
                                 <span class="text-slate-300">${player.role}</span>
+                                <span class="text-slate-600">•</span>
+                                <span class="text-lime-300 font-semibold">${record.winRate}% WR</span>
                             </div>
 
                             <!-- Hero Pool Badges -->
@@ -799,6 +928,9 @@
 
                     <!-- Card Actions -->
                     <div class="flex justify-end gap-2 mt-3 pt-2 border-t border-slate-800/60">
+                        <button onclick="openPlayerProfile('${player.id}')" class="text-xs text-slate-300 hover:text-lime-300 px-2 py-1 rounded hover:bg-slate-800 transition">
+                            <i class="fa-solid fa-chart-line mr-1"></i> Profile
+                        </button>
                         <button onclick="editPlayer('${player.id}')" class="text-xs text-slate-400 hover:text-cyan-300 px-2 py-1 rounded hover:bg-slate-800 transition">
                             <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
                         </button>
@@ -924,12 +1056,44 @@
         openPlayerModal(id);
       }
 
+      function openPlayerProfile(id) {
+        const player = squad.find((item) => item.id === id);
+        if (!player) return;
+        const record = getPlayerRecord(id);
+        const fallbackAvatar = `https://placehold.co/120x120/1e293b/00f2fe?text=${player.name.charAt(0)}`;
+        document.getElementById("profile-avatar").src = player.image || fallbackAvatar;
+        document.getElementById("profile-avatar").alt = `${player.name} avatar`;
+        document.getElementById("profile-name").innerText = player.name;
+        document.getElementById("profile-role").innerText = `${player.lane} Lane · ${player.role}`;
+        document.getElementById("profile-win-rate").innerText = `${record.winRate}%`;
+        document.getElementById("profile-rate-ring").style.setProperty("--rate", `${record.winRate}%`);
+        document.getElementById("profile-games").innerText = record.games.length;
+        document.getElementById("profile-wins").innerText = record.wins;
+        document.getElementById("profile-losses").innerText = record.losses;
+
+        const recent = [...record.games].reverse().slice(0, 5);
+        document.getElementById("profile-match-list").innerHTML = recent.length
+          ? recent.map((match) => {
+              const team = match.teamBlue.some((item) => item.id === id) ? "BLUE" : "RED";
+              const won = match.winner === team;
+              return `<div class="history-row"><span class="text-xs text-slate-500">${formatMatchDate(match.completedAt)}</span><span class="text-xs text-slate-300">Played for ${team === "BLUE" ? "Blue" : "Red"} Team</span><strong class="text-xs ${won ? "text-lime-300" : "text-red-300"}">${won ? "WIN" : "LOSS"}</strong></div>`;
+            }).join("")
+          : `<p class="text-xs text-slate-500 py-4">No completed matches yet.</p>`;
+        document.getElementById("profile-modal").classList.remove("hidden");
+      }
+
+      function closePlayerProfile() {
+        document.getElementById("profile-modal").classList.add("hidden");
+      }
+
       function renderMatchmakerList() {
         const grid = document.getElementById("matchmaker-selection-grid");
         document.getElementById("selected-count-text").innerText = selectedMatchmakerIds.size;
+        const locked = hasPendingMatch();
+        document.getElementById("match-lock-notice").classList.toggle("hidden", !locked);
 
         const generateBtn = document.getElementById("generate-btn");
-        if (selectedMatchmakerIds.size === 10) {
+        if (selectedMatchmakerIds.size === 10 && !locked) {
           generateBtn.disabled = false;
           generateBtn.classList.remove("opacity-50", "cursor-not-allowed");
         } else {
@@ -985,6 +1149,11 @@
 
       // Balanced 5v5 Generator algorithm based on Lane Matching
       function generate5v5() {
+        if (hasPendingMatch()) {
+          switchTab("versus");
+          showToast("Record the current match result before drafting again.");
+          return;
+        }
         if (selectedMatchmakerIds.size !== 10) return;
 
         const selectedPlayers = squad.filter((p) => selectedMatchmakerIds.has(p.id));
@@ -1020,7 +1189,8 @@
           }
         });
 
-        currentMatchup = { teamBlue, teamRed };
+        currentMatchup = { id: `match-${Date.now()}`, createdAt: new Date().toISOString(), completedAt: null, winner: null, teamBlue, teamRed };
+        saveMatchState();
 
         renderVersusBoard();
         switchTab("versus");
@@ -1029,6 +1199,10 @@
 
       function reshuffleTeams() {
         if (!currentMatchup) return;
+        if (currentMatchup.winner) {
+          showToast("Completed matches cannot be re-balanced.");
+          return;
+        }
         const all10 = [...currentMatchup.teamBlue, ...currentMatchup.teamRed];
         // Shuffle
         all10.sort(() => Math.random() - 0.5);
@@ -1042,7 +1216,8 @@
           teamRed.push({ ...all10[i * 2 + 1], assignedLane: lane });
         });
 
-        currentMatchup = { teamBlue, teamRed };
+        currentMatchup = { ...currentMatchup, teamBlue, teamRed };
+        saveMatchState();
         renderVersusBoard();
         showToast("Teams Re-shuffled!");
       }
@@ -1061,6 +1236,18 @@
         board.classList.remove("hidden");
 
         const { teamBlue, teamRed } = currentMatchup;
+        const completed = Boolean(currentMatchup.winner);
+        const resultCopy = document.getElementById("match-result-copy");
+        const blueWinBtn = document.getElementById("blue-win-btn");
+        const redWinBtn = document.getElementById("red-win-btn");
+        const reshuffleBtn = document.getElementById("reshuffle-btn");
+        blueWinBtn.disabled = completed;
+        redWinBtn.disabled = completed;
+        reshuffleBtn.disabled = completed;
+        reshuffleBtn.classList.toggle("opacity-40", completed);
+        resultCopy.innerHTML = completed
+          ? `<span class="${currentMatchup.winner === "BLUE" ? "text-blue-300" : "text-red-300"} font-bold">${currentMatchup.winner === "BLUE" ? "Blue" : "Red"} Team won.</span> Result saved — the next draft is unlocked.`
+          : "Choose the winning side to save this match and unlock the next draft.";
 
         const container = document.getElementById("matchup-lanes-container");
         const lanes = ["EXP", "JUNGLE", "MID", "GOLD", "ROAM"];
@@ -1109,6 +1296,18 @@
           .join("");
       }
 
+      function recordMatchResult(winner) {
+        if (!currentMatchup || currentMatchup.winner || !["BLUE", "RED"].includes(winner)) return;
+        currentMatchup = { ...currentMatchup, winner, completedAt: new Date().toISOString() };
+        matchHistory.push(JSON.parse(JSON.stringify(currentMatchup)));
+        selectedMatchmakerIds.clear();
+        saveMatchState();
+        renderVersusBoard();
+        updateBadgesAndStats();
+        renderRoster();
+        showToast(`${winner === "BLUE" ? "Blue" : "Red"} Team result saved!`);
+      }
+
       function copyMatchSummary() {
         if (!currentMatchup) return;
         const { teamBlue, teamRed } = currentMatchup;
@@ -1119,6 +1318,7 @@
 
         text += "\n🟥 **RED TEAM**\n";
         teamRed.forEach((p) => (text += `• [${p.assignedLane}] ${p.name}\n`));
+        if (currentMatchup.winner) text += `\n🏆 ${currentMatchup.winner === "BLUE" ? "BLUE" : "RED"} TEAM WON`;
 
         // Clipboard fallback
         const tempInput = document.createElement("textarea");
@@ -1159,10 +1359,30 @@
           .join("");
       }
 
+      function formatMatchDate(value) {
+        if (!value) return "Just now";
+        return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+      }
+
+      function renderMatchHistory() {
+        const container = document.getElementById("match-history-list");
+        const count = document.getElementById("history-count");
+        count.innerText = `${matchHistory.length} ${matchHistory.length === 1 ? "MATCH" : "MATCHES"}`;
+        if (!matchHistory.length) {
+          container.innerHTML = `<p class="text-xs text-slate-500 py-5 border-t border-slate-800/70 mt-3">No results recorded yet.</p>`;
+          return;
+        }
+        container.innerHTML = [...matchHistory].reverse().slice(0, 20).map((match) => {
+          const winningTeam = match.winner === "BLUE" ? match.teamBlue : match.teamRed;
+          return `<div class="history-row"><span class="text-xs text-slate-500">${formatMatchDate(match.completedAt)}</span><span class="text-xs text-slate-300 truncate">${winningTeam.map((player) => player.name).join(" · ")}</span><strong class="text-xs ${match.winner === "BLUE" ? "text-blue-300" : "text-red-300"}">${match.winner} WIN</strong></div>`;
+        }).join("");
+      }
+
       // Initialize App on window load
       window.onload = function () {
         updateBadgesAndStats();
         renderRoster();
+        renderVersusBoard();
       };
     </script>
   </body>
