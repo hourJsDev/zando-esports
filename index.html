@@ -788,10 +788,25 @@
       }
 
       function normalizeMatchData(match) {
+        const hydrateMatchPlayer = (player) => {
+          const normalized = normalizePlayerData(player);
+          const squadPlayer = squad?.find((item) => item.id === normalized.id);
+          return { ...normalized, image: normalized.image || squadPlayer?.image || "" };
+        };
         return {
           ...match,
-          teamBlue: (match.teamBlue || []).map(normalizePlayerData),
-          teamRed: (match.teamRed || []).map(normalizePlayerData),
+          teamBlue: (match.teamBlue || []).map(hydrateMatchPlayer),
+          teamRed: (match.teamRed || []).map(hydrateMatchPlayer),
+        };
+      }
+
+      function serializeMatchData(match) {
+        if (!match) return null;
+        const withoutEmbeddedImage = ({ image, ...player }) => player;
+        return {
+          ...match,
+          teamBlue: (match.teamBlue || []).map(withoutEmbeddedImage),
+          teamRed: (match.teamRed || []).map(withoutEmbeddedImage),
         };
       }
 
@@ -820,11 +835,19 @@
       }
 
       function saveMatchState() {
-        localStorage.setItem("mlbb_match_history", JSON.stringify(matchHistory));
-        if (currentMatchup) {
-          localStorage.setItem("mlbb_current_match", JSON.stringify(currentMatchup));
-        } else {
-          localStorage.removeItem("mlbb_current_match");
+        try {
+          const compactHistory = matchHistory.map(serializeMatchData);
+          localStorage.setItem("mlbb_match_history", JSON.stringify(compactHistory));
+          if (currentMatchup) {
+            localStorage.setItem("mlbb_current_match", JSON.stringify(serializeMatchData(currentMatchup)));
+          } else {
+            localStorage.removeItem("mlbb_current_match");
+          }
+          return true;
+        } catch (error) {
+          console.error("Unable to save match state", error);
+          showToast("Draft created, but browser storage is full.");
+          return false;
         }
       }
 
