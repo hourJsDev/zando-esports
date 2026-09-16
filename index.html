@@ -271,6 +271,12 @@
       .format-btn { min-height: 2.35rem; border-radius: 8px; padding: .35rem .85rem; color: #64748b; font-family: "Chakra Petch", sans-serif; font-size: .8rem; font-weight: 700; letter-spacing: .05em; }
       .format-btn.active { color: #071016; background: var(--cyan); box-shadow: 0 0 16px rgba(56,232,255,.18); }
       .format-btn:disabled { cursor: not-allowed; opacity: .55; }
+      .draft-mode-btn { min-height: 2.25rem; border-radius: 8px; padding: .35rem .8rem; color: #64748b; font-family: "Chakra Petch", sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .05em; }
+      .draft-mode-btn.active { color: #071016; background: var(--lime); box-shadow: 0 0 16px rgba(184,255,61,.14); }
+      .team-pick-btn { min-height: 1.8rem; border-radius: 7px; border: 1px solid rgba(148,163,184,.18); font-family: "Chakra Petch", sans-serif; font-size: .64rem; font-weight: 800; letter-spacing: .04em; transition: all .16s ease; }
+      .team-pick-btn.blue.active { color: #dbeafe; background: rgba(59,130,246,.35); border-color: rgba(96,165,250,.8); }
+      .team-pick-btn.red.active { color: #fee2e2; background: rgba(239,68,68,.32); border-color: rgba(248,113,113,.8); }
+      .team-pick-btn:disabled { cursor: not-allowed; opacity: .35; }
       .lane-choice { position: relative; }
       .lane-choice input { position: absolute; opacity: 0; pointer-events: none; }
       .lane-choice span { min-height: 2.6rem; display: flex; align-items: center; justify-content: center; gap: .4rem; border: 1px solid rgba(148,163,184,.18); border-radius: 9px; background: #090e16; color: #64748b; font-family: "Chakra Petch", sans-serif; font-size: .78rem; font-weight: 700; transition: all .18s ease; }
@@ -449,8 +455,18 @@
               <div class="format-toggle inline-flex" role="group" aria-label="Match format">
                 <button type="button" class="format-btn active" data-best-of="1" onclick="setMatchFormat(1)">BEST OF 1</button>
                 <button type="button" class="format-btn" data-best-of="3" onclick="setMatchFormat(3)">BEST OF 3</button>
+                <button type="button" class="format-btn" data-best-of="5" onclick="setMatchFormat(5)">BEST OF 5</button>
               </div>
             </div>
+
+            <div class="flex items-center justify-center gap-2 mt-3">
+              <span class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Teams</span>
+              <div class="format-toggle inline-flex" role="group" aria-label="Team selection mode">
+                <button type="button" class="draft-mode-btn active" data-draft-mode="auto" onclick="setDraftMode('auto')">AUTO BALANCE</button>
+                <button type="button" class="draft-mode-btn" data-draft-mode="manual" onclick="setDraftMode('manual')">MANUAL TEAMS</button>
+              </div>
+            </div>
+            <p id="manual-team-counts" class="hidden text-[11px] text-slate-400 mt-2"><span class="text-blue-300 font-bold">Blue 0/5</span> · <span class="text-red-300 font-bold">Red 0/5</span></p>
 
             <div class="flex items-center justify-center gap-3 mt-3">
               <button
@@ -483,7 +499,7 @@
         <div class="bg-mlbb-card rounded-2xl border border-slate-800 p-3">
           <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-1 flex justify-between items-center">
             <span>Select Squad Members</span>
-            <span class="text-[11px] text-cyan-400">Tap card to select</span>
+            <span id="matchmaker-picker-hint" class="text-[11px] text-cyan-400">Tap card to select</span>
           </h3>
           <div id="matchmaker-selection-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
             <!-- Dynamically populated -->
@@ -517,6 +533,11 @@
               <span class="font-display font-black text-2xl tracking-widest text-amber-400 italic">VS</span>
               <span id="series-score" class="font-display text-sm font-bold text-slate-100 block mt-1">0 — 0</span>
               <span id="series-format" class="text-[10px] text-slate-500 font-bold tracking-wider block">BEST OF 1</span>
+              <div id="active-format-controls" class="format-toggle inline-flex mt-2" role="group" aria-label="Update active match format">
+                <button type="button" class="format-btn !min-h-0 !py-1 !px-2 !text-[9px]" data-active-best-of="1" onclick="setMatchFormat(1)">BO1</button>
+                <button type="button" class="format-btn !min-h-0 !py-1 !px-2 !text-[9px]" data-active-best-of="3" onclick="setMatchFormat(3)">BO3</button>
+                <button type="button" class="format-btn !min-h-0 !py-1 !px-2 !text-[9px]" data-active-best-of="5" onclick="setMatchFormat(5)">BO5</button>
+              </div>
               <div class="mt-1">
                 <button id="reshuffle-btn" onclick="reshuffleTeams()" class="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[10px] rounded-lg border border-slate-700 font-medium">
                   <i class="fa-solid fa-rotate text-cyan-400 mr-1"></i> Re-Balance
@@ -777,9 +798,11 @@
       let squad = (JSON.parse(localStorage.getItem("mlbb_squad_data")) || defaultSquad).map(normalizePlayerData);
       let matchHistory = (JSON.parse(localStorage.getItem("mlbb_match_history")) || []).map(normalizeMatchData);
       let selectedMatchmakerIds = new Set();
+      let manualTeamAssignments = new Map();
+      let draftMode = localStorage.getItem("mlbb_draft_mode") === "manual" ? "manual" : "auto";
       const savedCurrentMatch = JSON.parse(localStorage.getItem("mlbb_current_match")) || null;
       let currentMatchup = savedCurrentMatch ? normalizeMatchData(savedCurrentMatch) : null;
-      let selectedMatchFormat = Number(localStorage.getItem("mlbb_match_format")) === 3 ? 3 : 1;
+      let selectedMatchFormat = [1, 3, 5].includes(Number(localStorage.getItem("mlbb_match_format"))) ? Number(localStorage.getItem("mlbb_match_format")) : 1;
       let currentFilterLane = "ALL";
 
       // Lane Icons and Badges mapping
@@ -810,7 +833,8 @@
       }
 
       function getMatchBestOf(match) {
-        return Number(match?.bestOf) === 3 ? 3 : 1;
+        const bestOf = Number(match?.bestOf);
+        return [1, 3, 5].includes(bestOf) ? bestOf : 1;
       }
 
       function getSeriesScore(match) {
@@ -819,12 +843,32 @@
       }
 
       function setMatchFormat(bestOf) {
-        if (hasPendingMatch()) {
-          showToast("Finish the active series before changing format.");
+        const nextFormat = [1, 3, 5].includes(Number(bestOf)) ? Number(bestOf) : 1;
+        const gamesPlayed = currentMatchup ? getSeriesScore(currentMatchup).blue + getSeriesScore(currentMatchup).red : 0;
+        if (hasPendingMatch() && gamesPlayed > 0) {
+          showToast("Match format is locked after Game 1 starts.");
           return;
         }
-        selectedMatchFormat = bestOf === 3 ? 3 : 1;
+        selectedMatchFormat = nextFormat;
         localStorage.setItem("mlbb_match_format", String(selectedMatchFormat));
+        if (hasPendingMatch()) {
+          currentMatchup = { ...currentMatchup, bestOf: nextFormat, targetWins: Math.ceil(nextFormat / 2) };
+          saveMatchState();
+          renderVersusBoard();
+          showToast(`Active match updated to Best of ${nextFormat}.`);
+        }
+        renderMatchmakerList();
+      }
+
+      function setDraftMode(mode) {
+        if (hasPendingMatch()) {
+          showToast("Finish the active series before starting another draft.");
+          return;
+        }
+        draftMode = mode === "manual" ? "manual" : "auto";
+        localStorage.setItem("mlbb_draft_mode", draftMode);
+        selectedMatchmakerIds.clear();
+        manualTeamAssignments.clear();
         renderMatchmakerList();
       }
 
@@ -1059,6 +1103,7 @@
         if (confirm("Are you sure you want to remove this player from squad?")) {
           squad = squad.filter((p) => p.id !== id);
           selectedMatchmakerIds.delete(id);
+          manualTeamAssignments.delete(id);
           saveSquadToStorage();
           renderRoster();
           showToast("Player removed.");
@@ -1106,14 +1151,27 @@
         const locked = hasPendingMatch();
         document.getElementById("match-lock-notice").classList.toggle("hidden", !locked);
         const displayedFormat = locked ? getMatchBestOf(currentMatchup) : selectedMatchFormat;
-        document.querySelectorAll(".format-btn").forEach((button) => {
+        const gamesPlayed = currentMatchup ? getSeriesScore(currentMatchup).blue + getSeriesScore(currentMatchup).red : 0;
+        document.querySelectorAll("[data-best-of]").forEach((button) => {
           const active = Number(button.dataset.bestOf) === displayedFormat;
           button.classList.toggle("active", active);
+          button.disabled = locked && gamesPlayed > 0;
+        });
+        document.querySelectorAll(".draft-mode-btn").forEach((button) => {
+          button.classList.toggle("active", button.dataset.draftMode === draftMode);
           button.disabled = locked;
         });
 
+        const blueCount = [...manualTeamAssignments.values()].filter((team) => team === "BLUE").length;
+        const redCount = [...manualTeamAssignments.values()].filter((team) => team === "RED").length;
+        const countLabel = document.getElementById("manual-team-counts");
+        countLabel.classList.toggle("hidden", draftMode !== "manual");
+        countLabel.innerHTML = `<span class="text-blue-300 font-bold">Blue ${blueCount}/5</span> · <span class="text-red-300 font-bold">Red ${redCount}/5</span>`;
+        document.getElementById("matchmaker-picker-hint").innerText = draftMode === "manual" ? "Assign every player Blue or Red" : "Tap card to select";
+
         const generateBtn = document.getElementById("generate-btn");
-        if (selectedMatchmakerIds.size === 10 && !locked) {
+        const readyToDraft = draftMode === "manual" ? blueCount === 5 && redCount === 5 : selectedMatchmakerIds.size === 10;
+        if (readyToDraft && !locked) {
           generateBtn.disabled = false;
           generateBtn.classList.remove("opacity-50", "cursor-not-allowed");
         } else {
@@ -1124,21 +1182,41 @@
         grid.innerHTML = squad
           .map((player) => {
             const isSelected = selectedMatchmakerIds.has(player.id);
+            const assignedTeam = manualTeamAssignments.get(player.id);
             const fallbackAvatar = `https://placehold.co/120x120/1e293b/00f2fe?text=${player.name.charAt(0)}`;
 
             return `
-                <div onclick="toggleMatchmakerSelect('${player.id}')" 
+                <div onclick="${draftMode === "auto" ? `toggleMatchmakerSelect('${player.id}')` : ""}"
                     class="p-2 rounded-xl border transition-all cursor-pointer flex flex-col items-center text-center relative ${
-                      isSelected ? "bg-cyan-950/40 border-cyan-400 ring-2 ring-cyan-400/30" : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                      assignedTeam === "BLUE" ? "bg-blue-950/40 border-blue-400 ring-2 ring-blue-400/20" : assignedTeam === "RED" ? "bg-red-950/40 border-red-400 ring-2 ring-red-400/20" : isSelected ? "bg-cyan-950/40 border-cyan-400 ring-2 ring-cyan-400/30" : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
                     }">
-                    ${isSelected ? `<span class="absolute top-1.5 right-1.5 bg-cyan-400 text-slate-950 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center">✓</span>` : ""}
+                    ${assignedTeam ? `<span class="absolute top-1.5 right-1.5 ${assignedTeam === "BLUE" ? "bg-blue-400" : "bg-red-400"} text-slate-950 px-1.5 h-4 rounded-full text-[8px] font-black flex items-center justify-center">${assignedTeam}</span>` : isSelected ? `<span class="absolute top-1.5 right-1.5 bg-cyan-400 text-slate-950 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center">✓</span>` : ""}
                     <img src="${player.image || fallbackAvatar}" onerror="this.src='${fallbackAvatar}'" alt="${player.name} avatar"
                         class="w-10 h-10 rounded-lg object-cover bg-slate-800 mb-1.5">
                     <span class="font-bold text-xs text-slate-200 truncate w-full">${player.name}</span>
                     <span class="text-[10px] text-cyan-400 font-medium truncate w-full">${player.lanes.join(" / ")}</span>
+                    ${draftMode === "manual" ? `<div class="grid grid-cols-2 gap-1 w-full mt-2"><button type="button" onclick="event.stopPropagation(); assignManualTeam('${player.id}', 'BLUE')" class="team-pick-btn blue ${assignedTeam === "BLUE" ? "active" : ""}" ${blueCount >= 5 && assignedTeam !== "BLUE" ? "disabled" : ""}>BLUE</button><button type="button" onclick="event.stopPropagation(); assignManualTeam('${player.id}', 'RED')" class="team-pick-btn red ${assignedTeam === "RED" ? "active" : ""}" ${redCount >= 5 && assignedTeam !== "RED" ? "disabled" : ""}>RED</button></div>` : ""}
                 </div>`;
           })
           .join("");
+      }
+
+      function assignManualTeam(id, team) {
+        if (hasPendingMatch() || !["BLUE", "RED"].includes(team)) return;
+        const currentTeam = manualTeamAssignments.get(id);
+        if (currentTeam === team) {
+          manualTeamAssignments.delete(id);
+          selectedMatchmakerIds.delete(id);
+        } else {
+          const teamCount = [...manualTeamAssignments.values()].filter((value) => value === team).length;
+          if (teamCount >= 5) {
+            showToast(`${team === "BLUE" ? "Blue" : "Red"} Team already has 5 players.`);
+            return;
+          }
+          manualTeamAssignments.set(id, team);
+          selectedMatchmakerIds.add(id);
+        }
+        renderMatchmakerList();
       }
 
       function toggleMatchmakerSelect(id) {
@@ -1155,6 +1233,18 @@
       }
 
       function autoSelectTen() {
+        if (draftMode === "manual") {
+          selectedMatchmakerIds.clear();
+          manualTeamAssignments.clear();
+          squad.slice(0, 10).forEach((player, index) => {
+            const team = index < 5 ? "BLUE" : "RED";
+            selectedMatchmakerIds.add(player.id);
+            manualTeamAssignments.set(player.id, team);
+          });
+          renderMatchmakerList();
+          showToast("Assigned 5 players to each team.");
+          return;
+        }
         selectedMatchmakerIds.clear();
         const topTen = squad.slice(0, 10);
         topTen.forEach((p) => selectedMatchmakerIds.add(p.id));
@@ -1164,6 +1254,7 @@
 
       function clearMatchmakerSelection() {
         selectedMatchmakerIds.clear();
+        manualTeamAssignments.clear();
         renderMatchmakerList();
       }
 
@@ -1214,6 +1305,34 @@
         };
       }
 
+      function assignLanesForTeam(players, team) {
+        const lanes = ["EXP", "JUNGLE", "MID", "GOLD", "ROAM"];
+        let best = null;
+        let bestScore = -1;
+
+        function tryAssignments(remaining, laneIndex, assignments, score) {
+          if (laneIndex === lanes.length) {
+            if (score > bestScore || (score === bestScore && Math.random() > 0.5)) {
+              bestScore = score;
+              best = assignments;
+            }
+            return;
+          }
+          remaining.forEach((player, index) => {
+            const lane = lanes[laneIndex];
+            tryAssignments(
+              [...remaining.slice(0, index), ...remaining.slice(index + 1)],
+              laneIndex + 1,
+              [...assignments, { ...player, assignedLane: lane, assignedTeam: team, assignmentFit: playerCanPlay(player, lane) }],
+              score + (playerCanPlay(player, lane) ? 1 : 0),
+            );
+          });
+        }
+
+        tryAssignments(players, 0, [], 0);
+        return best || [];
+      }
+
       // Balanced 5v5 Generator algorithm based on Lane Matching
       function generate5v5() {
         if (hasPendingMatch()) {
@@ -1224,8 +1343,20 @@
         if (selectedMatchmakerIds.size !== 10) return;
 
         const selectedPlayers = squad.filter((p) => selectedMatchmakerIds.has(p.id));
-
-        const { teamBlue, teamRed } = buildBalancedTeams(selectedPlayers);
+        let teamBlue;
+        let teamRed;
+        if (draftMode === "manual") {
+          const bluePlayers = selectedPlayers.filter((player) => manualTeamAssignments.get(player.id) === "BLUE");
+          const redPlayers = selectedPlayers.filter((player) => manualTeamAssignments.get(player.id) === "RED");
+          if (bluePlayers.length !== 5 || redPlayers.length !== 5) {
+            showToast("Assign exactly 5 players to Blue and 5 to Red.");
+            return;
+          }
+          teamBlue = assignLanesForTeam(bluePlayers, "BLUE");
+          teamRed = assignLanesForTeam(redPlayers, "RED");
+        } else {
+          ({ teamBlue, teamRed } = buildBalancedTeams(selectedPlayers));
+        }
 
         currentMatchup = {
           id: `match-${Date.now()}`,
@@ -1233,7 +1364,7 @@
           completedAt: null,
           winner: null,
           bestOf: selectedMatchFormat,
-          targetWins: selectedMatchFormat === 3 ? 2 : 1,
+          targetWins: Math.ceil(selectedMatchFormat / 2),
           blueScore: 0,
           redScore: 0,
           games: [],
@@ -1244,7 +1375,7 @@
 
         renderVersusBoard();
         switchTab("versus");
-        showToast("Balanced 5v5 Match Generated!");
+        showToast(draftMode === "manual" ? "Manual 5v5 teams created!" : "Balanced 5v5 Match Generated!");
       }
 
       function reshuffleTeams() {
@@ -1282,7 +1413,7 @@
         const { teamBlue, teamRed } = currentMatchup;
         const completed = Boolean(currentMatchup.winner);
         const bestOf = getMatchBestOf(currentMatchup);
-        const targetWins = currentMatchup.targetWins || (bestOf === 3 ? 2 : 1);
+        const targetWins = currentMatchup.targetWins || Math.ceil(bestOf / 2);
         const score = getSeriesScore(currentMatchup);
         const gamesPlayed = score.blue + score.red;
         const resultCopy = document.getElementById("match-result-copy");
@@ -1292,16 +1423,21 @@
         const reshuffleBtn = document.getElementById("reshuffle-btn");
         document.getElementById("series-score").innerText = `${score.blue} — ${score.red}`;
         document.getElementById("series-format").innerText = `BEST OF ${bestOf}`;
-        resultTitle.innerText = completed ? (bestOf === 3 ? "SERIES COMPLETE" : "MATCH COMPLETE") : bestOf === 3 ? `GAME ${gamesPlayed + 1} RESULT` : "MATCH RESULT REQUIRED";
+        resultTitle.innerText = completed ? (bestOf > 1 ? "SERIES COMPLETE" : "MATCH COMPLETE") : bestOf > 1 ? `GAME ${gamesPlayed + 1} RESULT` : "MATCH RESULT REQUIRED";
         blueWinBtn.disabled = completed;
         redWinBtn.disabled = completed;
         reshuffleBtn.disabled = completed || gamesPlayed > 0;
         reshuffleBtn.classList.toggle("opacity-40", completed || gamesPlayed > 0);
-        blueWinBtn.innerHTML = `<i class="fa-solid fa-crown mr-1.5"></i> ${bestOf === 3 && !completed ? "Blue wins game" : "Blue Won"}`;
-        redWinBtn.innerHTML = `<i class="fa-solid fa-crown mr-1.5"></i> ${bestOf === 3 && !completed ? "Red wins game" : "Red Won"}`;
+        document.querySelectorAll("[data-active-best-of]").forEach((button) => {
+          button.classList.toggle("active", Number(button.dataset.activeBestOf) === bestOf);
+          button.disabled = completed || gamesPlayed > 0;
+        });
+        document.getElementById("active-format-controls").classList.toggle("opacity-50", completed || gamesPlayed > 0);
+        blueWinBtn.innerHTML = `<i class="fa-solid fa-crown mr-1.5"></i> ${bestOf > 1 && !completed ? "Blue wins game" : "Blue Won"}`;
+        redWinBtn.innerHTML = `<i class="fa-solid fa-crown mr-1.5"></i> ${bestOf > 1 && !completed ? "Red wins game" : "Red Won"}`;
         resultCopy.innerHTML = completed
           ? `<span class="${currentMatchup.winner === "BLUE" ? "text-blue-300" : "text-red-300"} font-bold">${currentMatchup.winner === "BLUE" ? "Blue" : "Red"} Team won ${score.blue}–${score.red}.</span> Series saved — the next draft is unlocked.`
-          : bestOf === 3
+          : bestOf > 1
             ? `Record Game ${gamesPlayed + 1}. First team to ${targetWins} wins completes the series.`
             : "Choose the winning side to save this match and unlock the next draft.";
 
@@ -1355,7 +1491,7 @@
       function recordMatchResult(winner) {
         if (!currentMatchup || currentMatchup.winner || !["BLUE", "RED"].includes(winner)) return;
         const bestOf = getMatchBestOf(currentMatchup);
-        const targetWins = currentMatchup.targetWins || (bestOf === 3 ? 2 : 1);
+        const targetWins = currentMatchup.targetWins || Math.ceil(bestOf / 2);
         const now = new Date().toISOString();
         const blueScore = (currentMatchup.blueScore || 0) + (winner === "BLUE" ? 1 : 0);
         const redScore = (currentMatchup.redScore || 0) + (winner === "RED" ? 1 : 0);
@@ -1373,6 +1509,7 @@
         if (seriesWinner) {
           matchHistory.push(JSON.parse(JSON.stringify(currentMatchup)));
           selectedMatchmakerIds.clear();
+          manualTeamAssignments.clear();
         }
         saveMatchState();
         renderVersusBoard();
